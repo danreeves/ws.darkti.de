@@ -98,8 +98,6 @@ async function setConnections(change: number) {
 	return connections;
 }
 
-setConnections(-1);
-
 async function onOpen() {
 	const currentConnections = await setConnections(+1);
 	console.log(`Client ${currentConnections} connected`);
