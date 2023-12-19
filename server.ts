@@ -8,6 +8,7 @@ Deno.serve({
 
       socket.onopen = () => {
         console.log("Client connected");
+        socket.send("Welcome to the chat!");
       };
       socket.onmessage = (event) => {
         console.log(`RECEIVED: ${event.data}`);
