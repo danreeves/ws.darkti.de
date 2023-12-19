@@ -92,14 +92,11 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 
 async function setConnections(change: number) {
 	const record = await kv.get<number>(["connections"]);
-	console.log(record);
 	const currentConnections = record?.value || 0;
 	const connections = currentConnections + change;
 	await kv.set(["connections"], connections);
 	return connections;
 }
-
-setConnections(1);
 
 async function onOpen() {
 	const currentConnections = await setConnections(+1);
