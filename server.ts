@@ -150,6 +150,13 @@ async function onOpen() {
 }
 
 async function onClose(ws: WebSocket) {
+	// Clear idle timeout
+	const connectionTimeout = connectionTimeouts.get(ws);
+	if (connectionTimeout) {
+		clearTimeout(connectionTimeout);
+		connectionTimeouts.delete(ws);
+	}
+
 	const currentRoom = wsToRoom.get(ws);
 	if (currentRoom) {
 		// Leave current room
