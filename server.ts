@@ -183,5 +183,3 @@ Deno.serve({
 		}
 	},
 });
-
-await kv.set(["connections"], 0);
