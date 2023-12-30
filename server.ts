@@ -120,6 +120,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 			}
 		}
 	} else {
+		console.log(message.data);
 		if (ws.readyState < 2) {
 			ws.send("Invalid event");
 		}
