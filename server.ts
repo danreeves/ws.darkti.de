@@ -180,8 +180,9 @@ async function onClose(ws: WebSocket) {
 	console.log("Client disconnected");
 }
 
-function onError(error: Event) {
+function onError(socket: WebSocket, error: Event) {
 	console.error(error);
+	onClose(socket);
 }
 
 Deno.serve({
@@ -195,7 +196,7 @@ Deno.serve({
 			socket.onopen = onOpen;
 			socket.onmessage = (message) => onMessage(socket, message);
 			socket.onclose = () => onClose(socket);
-			socket.onerror = onError;
+			socket.onerror = (error) => onError(socket, error);
 
 			createTimeout(socket);
 
@@ -208,3 +209,5 @@ Deno.serve({
 		}
 	},
 });
+
+await kv.set(["connections"], 0);
