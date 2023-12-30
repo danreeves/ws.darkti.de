@@ -6,11 +6,18 @@ import {
 	literal,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
+const TWO_MINUTES = 1000 * 60 * 2;
+
 const kv = await Deno.openKv();
 
 const wsToRoom = new Map<WebSocket, string>();
 const rooms = new Map<string, WebSocket[]>();
 const channels = new Map<string, BroadcastChannel>();
+const connectionTimeouts = new Map<WebSocket, number>();
+
+const HeartbeatEvent = object({
+	type: literal("doki"),
+});
 
 const JoinEvent = object({
 	type: literal("join"),
@@ -22,7 +29,16 @@ const DataEvent = object({
 	data: string(),
 });
 
-const Event = union([JoinEvent, DataEvent]);
+const Event = union([HeartbeatEvent, JoinEvent, DataEvent]);
+
+function createTimeout(socket: WebSocket) {
+	const connectionTimeout = setTimeout(() => {
+		socket.send("IDLE");
+		socket.close();
+	}, TWO_MINUTES);
+
+	connectionTimeouts.set(socket, connectionTimeout);
+}
 
 function onMessage(ws: WebSocket, message: MessageEvent) {
 	const result = safeParse(Event, message.data);
@@ -30,6 +46,19 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 		const event = result.output;
 
 		switch (event.type) {
+			case "doki": {
+				// Clear previous timeout
+				const connectionTimeout = connectionTimeouts.get(ws);
+				if (connectionTimeout) {
+					clearTimeout(connectionTimeout);
+					connectionTimeouts.delete(ws);
+				}
+
+				// Create new timeout
+				createTimeout(ws);
+				break;
+			}
+
 			case "join": {
 				// Leave current room
 				const currentRoom = wsToRoom.get(ws);
@@ -143,6 +172,8 @@ Deno.serve({
 			socket.onclose = () => onClose(socket);
 			socket.onerror = onError;
 
+			createTimeout(socket);
+
 			return response;
 		} else {
 			// If the request is a normal HTTP request,
@@ -152,3 +183,5 @@ Deno.serve({
 		}
 	},
 });
+
+await kv.set(["connections"], 0);
