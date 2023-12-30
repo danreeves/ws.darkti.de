@@ -43,8 +43,17 @@ function createTimeout(socket: WebSocket) {
 	connectionTimeouts.set(socket, connectionTimeout);
 }
 
+function parseJson(data: string) {
+	try {
+		return JSON.parse(data);
+	} catch (_error: unknown) {
+		return null;
+	}
+}
+
 function onMessage(ws: WebSocket, message: MessageEvent) {
-	const result = safeParse(Event, message.data);
+	const data = parseJson(message.data);
+	const result = safeParse(Event, data);
 	if (result.success) {
 		const event = result.output;
 
