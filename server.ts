@@ -109,6 +109,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 				}
 				break;
 			}
+
 			case "data": {
 				const currentRoom = wsToRoom.get(ws);
 				if (currentRoom) {
