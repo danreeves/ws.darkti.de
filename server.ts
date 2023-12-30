@@ -47,6 +47,8 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	if (result.success) {
 		const event = result.output;
 
+		console.log(event);
+
 		switch (event.type) {
 			case "doki": {
 				// Clear previous timeout
