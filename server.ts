@@ -33,8 +33,10 @@ const Event = union([HeartbeatEvent, JoinEvent, DataEvent]);
 
 function createTimeout(socket: WebSocket) {
 	const connectionTimeout = setTimeout(() => {
-		socket.send("IDLE");
-		socket.close();
+		if (socket.readyState === WebSocket.OPEN) {
+			socket.send("IDLE");
+			socket.close();
+		}
 	}, TWO_MINUTES);
 
 	connectionTimeouts.set(socket, connectionTimeout);
