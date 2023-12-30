@@ -33,7 +33,8 @@ const Event = union([HeartbeatEvent, JoinEvent, DataEvent]);
 
 function createTimeout(socket: WebSocket) {
 	const connectionTimeout = setTimeout(() => {
-		if (socket.readyState === WebSocket.OPEN) {
+		// CONNECTING or OPEN
+		if (socket.readyState < 2) {
 			socket.send("IDLE");
 			socket.close();
 		}
@@ -119,7 +120,9 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 			}
 		}
 	} else {
-		ws.send("Invalid event");
+		if (ws.readyState < 2) {
+			ws.send("Invalid event");
+		}
 	}
 }
 
