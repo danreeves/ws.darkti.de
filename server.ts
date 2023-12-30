@@ -117,9 +117,9 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 					const room = rooms.get(currentRoom);
 					if (room) {
 						for (const w of room) {
-							// if (w !== ws) {
-							w.send(event.data);
-							// }
+							if (w !== ws) {
+								w.send(event.data);
+							}
 						}
 					}
 					if (channel) {
