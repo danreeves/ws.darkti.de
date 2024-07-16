@@ -140,7 +140,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 }
 
 async function onOpen() {
-	console.log(`Client connected (${connectionTimeouts.keys().length} connected to instance)`);
+	console.log(`Client connected (${[...connectionTimeouts.keys()].length} connected to instance)`);
 }
 
 async function onClose(ws: WebSocket) {
@@ -169,7 +169,7 @@ async function onClose(ws: WebSocket) {
 		}
 	}
 
-	console.log(`Client disconnected (${connectionTimeouts.keys().length} connected to instance)`);
+	console.log(`Client disconnected (${[...connectionTimeouts.keys()].length} connected to instance)`);
 }
 
 function onError(socket: WebSocket, error: Event) {
