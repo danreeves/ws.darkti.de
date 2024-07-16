@@ -35,10 +35,11 @@ function createTimeout(socket: WebSocket) {
 	const connectionTimeout = setTimeout(() => {
 		// CONNECTING or OPEN
 		if (socket.readyState < 2) {
-			socket.send("IDLE");
+			console.log("Closing idle connection")
+			socket.send(JSON.stringify({type: "sys", message: "idle"}));
 			socket.close();
 		}
-	}, TWO_MINUTES);
+	}, 200);
 
 	connectionTimeouts.set(socket, connectionTimeout);
 }
@@ -132,7 +133,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	} else {
 		console.log(message.data);
 		if (ws.readyState < 2) {
-			ws.send("Invalid event");
+			ws.send(JSON.stringify({ type: "sys", message: "Invalid event" }));
 		}
 	}
 }
