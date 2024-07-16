@@ -148,12 +148,10 @@ async function setConnections(change: number) {
 
 async function onOpen() {
 	const currentConnections = await setConnections(+1);
-	console.log(`Client ${currentConnections} connected`);
+	console.log(`Client connected (${currentConnections})`);
 }
 
 async function onClose(ws: WebSocket) {
-	console.log("onClose")
-
 	// Clear idle timeout
 	const connectionTimeout = connectionTimeouts.get(ws);
 	if (connectionTimeout) {
@@ -179,8 +177,8 @@ async function onClose(ws: WebSocket) {
 		}
 	}
 
-	await setConnections(-1);
-	console.log("Client disconnected");
+	const currentConnections = await setConnections(-1);
+	console.log(`Client disconnected (${currentConnections}})`);
 }
 
 function onError(socket: WebSocket, error: Event) {
