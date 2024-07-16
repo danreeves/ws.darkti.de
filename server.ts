@@ -9,6 +9,7 @@ import {
 const TWO_MINUTES = 1000 * 60 * 2;
 
 const kv = await Deno.openKv();
+kv.delete(["connections"]);
 
 const wsToRoom = new Map<WebSocket, string>();
 const rooms = new Map<string, WebSocket[]>();
@@ -138,17 +139,8 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	}
 }
 
-async function setConnections(change: number) {
-	const record = await kv.get<number>(["connections"]);
-	const currentConnections = record?.value || 0;
-	const connections = currentConnections + change;
-	await kv.set(["connections"], connections);
-	return connections;
-}
-
 async function onOpen() {
-	const currentConnections = await setConnections(+1);
-	console.log(`Client connected (${currentConnections})`);
+	console.log(`Client connected (${connectionTimeouts.keys().length} connected to instance)`);
 }
 
 async function onClose(ws: WebSocket) {
@@ -177,8 +169,7 @@ async function onClose(ws: WebSocket) {
 		}
 	}
 
-	const currentConnections = await setConnections(-1);
-	console.log(`Client disconnected (${currentConnectionsf})`);
+	console.log(`Client disconnected (${connectionTimeouts.keys().length} connected to instance)`);
 }
 
 function onError(socket: WebSocket, error: Event) {
