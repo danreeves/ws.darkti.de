@@ -152,6 +152,8 @@ async function onOpen() {
 }
 
 async function onClose(ws: WebSocket) {
+	console.log("onClose")
+
 	// Clear idle timeout
 	const connectionTimeout = connectionTimeouts.get(ws);
 	if (connectionTimeout) {
