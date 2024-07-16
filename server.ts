@@ -178,7 +178,7 @@ async function onClose(ws: WebSocket) {
 	}
 
 	const currentConnections = await setConnections(-1);
-	console.log(`Client disconnected (${currentConnections}})`);
+	console.log(`Client disconnected (${currentConnectionsf})`);
 }
 
 function onError(socket: WebSocket, error: Event) {
