@@ -39,7 +39,7 @@ function createTimeout(socket: WebSocket) {
 			socket.send(JSON.stringify({type: "sys", message: "idle"}));
 			socket.close();
 		}
-	}, 200);
+	}, TWO_MINUTES);
 
 	connectionTimeouts.set(socket, connectionTimeout);
 }
