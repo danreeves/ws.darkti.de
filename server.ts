@@ -25,12 +25,16 @@ const JoinEvent = object({
 	room: string(),
 });
 
+const LeaveEvent = object({
+	type: literal("leave"),
+});
+
 const DataEvent = object({
 	type: literal("data"),
 	data: string(),
 });
 
-const Event = union([HeartbeatEvent, JoinEvent, DataEvent]);
+const Event = union([HeartbeatEvent, JoinEvent, LeaveEvent, DataEvent]);
 
 function createTimeout(socket: WebSocket) {
 	const connectionTimeout = setTimeout(() => {
@@ -109,6 +113,22 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 
 					channels.set(event.room, channel);
 				}
+				break;
+			}
+
+			case "leave": {
+				// Leave current room
+				const currentRoom = wsToRoom.get(ws);
+				if (currentRoom) {
+					const room = rooms.get(currentRoom);
+					if (room) {
+						rooms.set(
+							currentRoom,
+							room.filter((w) => w !== ws)
+						);
+					}
+				}
+				wsToRoom.delete(ws);
 				break;
 			}
 
