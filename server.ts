@@ -6,15 +6,12 @@ import {
 	literal,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
-const TWO_MINUTES = 1000 * 60 * 2;
-
 const kv = await Deno.openKv();
 kv.delete(["connections"]);
 
 const wsToRoom = new Map<WebSocket, string>();
 const rooms = new Map<string, WebSocket[]>();
 const channels = new Map<string, BroadcastChannel>();
-const connectionTimeouts = new Map<WebSocket, number>();
 
 const HeartbeatEvent = object({
 	type: literal("doki"),
@@ -36,19 +33,6 @@ const DataEvent = object({
 
 const Event = union([HeartbeatEvent, JoinEvent, LeaveEvent, DataEvent]);
 
-function createTimeout(socket: WebSocket) {
-	const connectionTimeout = setTimeout(() => {
-		// CONNECTING or OPEN
-		if (socket.readyState < 2) {
-			console.log("Closing idle connection")
-			socket.send(JSON.stringify({type: "sys", message: "idle"}));
-			socket.close();
-		}
-	}, TWO_MINUTES);
-
-	connectionTimeouts.set(socket, connectionTimeout);
-}
-
 function parseJson(data: string) {
 	try {
 		return JSON.parse(data);
@@ -66,19 +50,6 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 		console.log(event);
 
 		switch (event.type) {
-			case "doki": {
-				// Clear previous timeout
-				const connectionTimeout = connectionTimeouts.get(ws);
-				if (connectionTimeout) {
-					clearTimeout(connectionTimeout);
-					connectionTimeouts.delete(ws);
-				}
-
-				// Create new timeout
-				createTimeout(ws);
-				break;
-			}
-
 			case "join": {
 				// Leave current room
 				const currentRoom = wsToRoom.get(ws);
@@ -159,18 +130,15 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	}
 }
 
-async function onOpen() {
-	console.log(`Client connected (${[...connectionTimeouts.keys()].length} connected to instance)`);
+function onOpen() {
+	console.log(
+		`Client connected (${
+			[...wsToRoom.keys()].length
+		} connected to instance)`
+	);
 }
 
-async function onClose(ws: WebSocket) {
-	// Clear idle timeout
-	const connectionTimeout = connectionTimeouts.get(ws);
-	if (connectionTimeout) {
-		clearTimeout(connectionTimeout);
-		connectionTimeouts.delete(ws);
-	}
-
+function onClose(ws: WebSocket) {
 	const currentRoom = wsToRoom.get(ws);
 	if (currentRoom) {
 		// Leave current room
@@ -189,7 +157,11 @@ async function onClose(ws: WebSocket) {
 		}
 	}
 
-	console.log(`Client disconnected (${[...connectionTimeouts.keys()].length} connected to instance)`);
+	console.log(
+		`Client disconnected (${
+			[...wsToRoom.keys()].length
+		} connected to instance)`
+	);
 }
 
 function onError(socket: WebSocket, error: Event) {
@@ -209,8 +181,6 @@ Deno.serve({
 			socket.onmessage = (message) => onMessage(socket, message);
 			socket.onclose = () => onClose(socket);
 			socket.onerror = (error) => onError(socket, error);
-
-			createTimeout(socket);
 
 			return response;
 		} else {
