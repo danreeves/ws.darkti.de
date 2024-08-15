@@ -4,17 +4,21 @@ import {
 	safeParse,
 	string,
 	literal,
+	array,
+	Output,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
-const kv = await Deno.openKv();
-kv.delete(["connections"]);
+const wsToId = new Map<WebSocket, string>();
+const idToWs = new Map<string, WebSocket>();
 
 const wsToRoom = new Map<WebSocket, string>();
 const rooms = new Map<string, WebSocket[]>();
+
 const channels = new Map<string, BroadcastChannel>();
 
-const HeartbeatEvent = object({
-	type: literal("doki"),
+const ConnectEvent = object({
+	type: literal("connect"),
+	id: string(),
 });
 
 const JoinEvent = object({
@@ -28,10 +32,13 @@ const LeaveEvent = object({
 
 const DataEvent = object({
 	type: literal("data"),
+	mod: string(),
+	to: union([literal("all"), array(string())]),
+	from: string(),
 	data: string(),
 });
 
-const Event = union([HeartbeatEvent, JoinEvent, LeaveEvent, DataEvent]);
+const Event = union([ConnectEvent, JoinEvent, LeaveEvent, DataEvent]);
 
 function parseJson(data: string) {
 	try {
@@ -50,6 +57,12 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 		console.log(event);
 
 		switch (event.type) {
+			case "connect": {
+				wsToId.set(ws, event.id);
+				idToWs.set(event.id, ws);
+				break;
+			}
+
 			case "join": {
 				// Leave current room
 				const currentRoom = wsToRoom.get(ws);
@@ -76,9 +89,20 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 				if (!channels.has(event.room)) {
 					const channel = new BroadcastChannel(event.room);
 
-					channel.onmessage = (message: MessageEvent<string>) => {
+					channel.onmessage = (
+						message: MessageEvent<Output<typeof DataEvent>>
+					) => {
+						const dataEvent = message.data;
 						for (const w of rooms.get(event.room) ?? []) {
-							w.send(message.data);
+							const wId = wsToId.get(w);
+							if (wId && w !== ws) {
+								if (
+									dataEvent.to === "all" ||
+									dataEvent.to.includes(wId)
+								) {
+									w.send(dataEvent.data);
+								}
+							}
 						}
 					};
 
@@ -110,13 +134,19 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 					const room = rooms.get(currentRoom);
 					if (room) {
 						for (const w of room) {
-							if (w !== ws) {
-								w.send(event.data);
+							const wId = wsToId.get(w);
+							if (wId && w !== ws) {
+								if (
+									event.to === "all" ||
+									event.to.includes(wId)
+								) {
+									w.send(event.data);
+								}
 							}
 						}
 					}
 					if (channel) {
-						channel.postMessage(event.data);
+						channel.postMessage(event);
 					}
 				}
 				break;
@@ -155,6 +185,12 @@ function onClose(ws: WebSocket) {
 				rooms.set(currentRoom, newRoom);
 			}
 		}
+	}
+
+	const id = wsToId.get(ws);
+	wsToId.delete(ws);
+	if (id) {
+		idToWs.delete(id);
 	}
 
 	console.log(
