@@ -200,7 +200,6 @@ function onClose(ws: WebSocket) {
 function onError(socket: WebSocket, error: Event) {
 	console.error(error);
 	socket.close();
-	onClose(socket);
 }
 
 Deno.serve({
