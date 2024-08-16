@@ -8,6 +8,8 @@ import {
 	Output,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
+let connections = 0;
+
 const wsToId = new Map<WebSocket, string>();
 const idToWs = new Map<string, WebSocket>();
 
@@ -161,14 +163,12 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 }
 
 function onOpen() {
-	console.log(
-		`Client connected (${
-			[...wsToRoom.keys()].length
-		} connected to instance)`
-	);
+	connections++;
+	console.log(`Client connected (${connections} connected to instance)`);
 }
 
 function onClose(ws: WebSocket) {
+	connections--;
 	const currentRoom = wsToRoom.get(ws);
 	if (currentRoom) {
 		// Leave current room
@@ -193,11 +193,7 @@ function onClose(ws: WebSocket) {
 		idToWs.delete(id);
 	}
 
-	console.log(
-		`Client disconnected (${
-			[...wsToRoom.keys()].length
-		} connected to instance)`
-	);
+	console.log(`Client disconnected (${connections} connected to instance)`);
 }
 
 function onError(socket: WebSocket, error: Event) {
