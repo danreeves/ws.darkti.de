@@ -18,13 +18,9 @@ const rooms = new Map<string, WebSocket[]>();
 
 const channels = new Map<string, BroadcastChannel>();
 
-const ConnectEvent = object({
-	type: literal("connect"),
-	id: string(),
-});
-
 const JoinEvent = object({
 	type: literal("join"),
+	id: string(),
 	room: string(),
 });
 
@@ -40,7 +36,7 @@ const DataEvent = object({
 	data: string(),
 });
 
-const Event = union([ConnectEvent, JoinEvent, LeaveEvent, DataEvent]);
+const Event = union([JoinEvent, LeaveEvent, DataEvent]);
 
 function parseJson(data: string) {
 	try {
@@ -59,13 +55,10 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 		console.log(event);
 
 		switch (event.type) {
-			case "connect": {
+			case "join": {
 				wsToId.set(ws, event.id);
 				idToWs.set(event.id, ws);
-				break;
-			}
 
-			case "join": {
 				// Leave current room
 				const currentRoom = wsToRoom.get(ws);
 				if (currentRoom) {
