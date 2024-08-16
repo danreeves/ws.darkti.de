@@ -8,7 +8,7 @@ import {
 	Output,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
-let connections = 0;
+const sockets = new Set<WebSocket>();
 
 const wsToId = new Map<WebSocket, string>();
 const idToWs = new Map<string, WebSocket>();
@@ -162,13 +162,14 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	}
 }
 
-function onOpen() {
-	connections++;
-	console.log(`Client connected (${connections} connected to instance)`);
+function onOpen(ws: WebSocket) {
+	sockets.add(ws);
+	console.log(`Client connected (${sockets.size} connected to instance)`);
 }
 
 function onClose(ws: WebSocket) {
-	connections--;
+	sockets.delete(ws);
+
 	const currentRoom = wsToRoom.get(ws);
 	if (currentRoom) {
 		// Leave current room
@@ -193,11 +194,12 @@ function onClose(ws: WebSocket) {
 		idToWs.delete(id);
 	}
 
-	console.log(`Client disconnected (${connections} connected to instance)`);
+	console.log(`Client disconnected (${sockets.size} connected to instance)`);
 }
 
 function onError(socket: WebSocket, error: Event) {
 	console.error(error);
+	socket.close();
 	onClose(socket);
 }
 
@@ -209,7 +211,7 @@ Deno.serve({
 		if (request.headers.get("upgrade") === "websocket") {
 			const { socket, response } = Deno.upgradeWebSocket(request);
 
-			socket.onopen = onOpen;
+			socket.onopen = () => onOpen(socket);
 			socket.onmessage = (message) => onMessage(socket, message);
 			socket.onclose = () => onClose(socket);
 			socket.onerror = (error) => onError(socket, error);
