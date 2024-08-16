@@ -198,7 +198,9 @@ function onClose(ws: WebSocket) {
 }
 
 function onError(socket: WebSocket, error: Event) {
-	console.error(error);
+	if (error instanceof ErrorEvent) {
+		console.error(error.message);
+	}
 	socket.close();
 }
 
