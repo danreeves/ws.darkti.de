@@ -72,8 +72,7 @@ class Room extends Syncable {
 		const user = this.members.find((u) => u.id === userId);
 		if (!user) return;
 
-		if ("mod" in message && user.mods && !user.mods.includes(message.mod))
-			return;
+		if ("mod" in message && !user.mods.includes(message.mod)) return;
 
 		const socket = userIdToSocket.get(userId);
 		if (!socket) return;
