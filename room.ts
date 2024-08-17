@@ -2,6 +2,7 @@ import { Syncable } from "./lib/Syncable.ts";
 import type {
 	DataEvent,
 	JoinedEvent,
+	LeftEvent,
 	Peer,
 	RoomId,
 	UserId,
@@ -51,12 +52,20 @@ class Room extends Syncable {
 		userIdToRoom.delete(id);
 		if (this.members.length === 0) {
 			rooms.delete(this.roomName);
+		} else {
+			for (const member of this.members) {
+				this.sendMessageToUser(member.id, {
+					type: "left",
+					from: "server",
+					id: id,
+				});
+			}
 		}
 	}
 
 	private sendMessageToUser(
 		userId: UserId,
-		message: DataEvent | JoinedEvent
+		message: DataEvent | JoinedEvent | LeftEvent
 	) {
 		if (userId === message.from) return;
 

@@ -43,4 +43,10 @@ export type JoinedEvent = {
 	peers: Array<Peer>;
 };
 
+export type LeftEvent = {
+	type: "left";
+	from: "server";
+	id: UserId;
+};
+
 export const Event = union([JoinEvent, LeaveEvent, DataEvent]);
