@@ -58,7 +58,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 			}
 		}
 	} else {
-		console.log(message.data);
+		console.warn("Invalid message: ", message.data);
 		if (ws.readyState < 2) {
 			ws.send(
 				JSON.stringify({ type: "error", message: "Invalid event" })
