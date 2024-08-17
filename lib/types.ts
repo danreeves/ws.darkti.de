@@ -5,6 +5,7 @@ import {
 	object,
 	string,
 	union,
+	nullable,
 	Output,
 } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 
@@ -18,7 +19,7 @@ export const JoinEvent = object({
 	type: literal("join"),
 	id: UserId,
 	room: RoomId,
-	mods: array(string()),
+	mods: nullable(array(string())),
 });
 
 const LeaveEvent = object({
@@ -35,7 +36,7 @@ export const DataEvent = object({
 
 export type DataEvent = Output<typeof DataEvent>;
 
-export type Peer = { id: UserId; mods: Array<string> };
+export type Peer = { id: UserId; mods: Array<string> | null };
 
 export type JoinedEvent = {
 	type: "joined";
