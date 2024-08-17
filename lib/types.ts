@@ -35,4 +35,12 @@ export const DataEvent = object({
 
 export type DataEvent = Output<typeof DataEvent>;
 
+export type Peer = { id: UserId; mods: Array<string> };
+
+export type JoinedEvent = {
+	type: "joined";
+	from: "server";
+	peers: Array<Peer>;
+};
+
 export const Event = union([JoinEvent, LeaveEvent, DataEvent]);

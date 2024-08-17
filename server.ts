@@ -33,7 +33,7 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 
 				// Join new room
 				const newRoom = getRoomByRoomId(event.room);
-				newRoom.addMember({ ...event });
+				newRoom.addMember({ id: event.id, mods: event.mods });
 
 				break;
 			}
