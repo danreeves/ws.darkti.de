@@ -48,7 +48,7 @@ class Room extends Syncable {
 	}
 
 	removeMember(id: UserId) {
-		this.members = this.members.filter((m) => m.id === id);
+		this.members = this.members.filter((m) => m.id !== id);
 		userIdToRoom.delete(id);
 		if (this.members.length === 0) {
 			rooms.delete(this.roomName);
