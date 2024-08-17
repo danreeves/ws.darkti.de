@@ -1,50 +1,16 @@
+import { safeParse } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
 import {
-	object,
-	union,
-	safeParse,
-	string,
-	literal,
-	array,
-	Output,
-} from "https://deno.land/x/valibot@v0.24.1/mod.ts";
+	clearSocket,
+	getRoomByRoomId,
+	getRoomByUserId,
+	getRoomByWebSocket,
+	getUserIdByWebSocket,
+	registerSocket,
+} from "./room.ts";
+import { Event } from "./lib/types.ts";
+import { parseJson } from "./lib/parseJson.ts";
 
 const sockets = new Set<WebSocket>();
-
-const wsToId = new Map<WebSocket, string>();
-const idToWs = new Map<string, WebSocket>();
-
-const wsToRoom = new Map<WebSocket, string>();
-const rooms = new Map<string, WebSocket[]>();
-
-const channels = new Map<string, BroadcastChannel>();
-
-const JoinEvent = object({
-	type: literal("join"),
-	id: string(),
-	room: string(),
-});
-
-const LeaveEvent = object({
-	type: literal("leave"),
-});
-
-const DataEvent = object({
-	type: literal("data"),
-	mod: string(),
-	to: union([literal("all"), array(string())]),
-	from: string(),
-	data: string(),
-});
-
-const Event = union([JoinEvent, LeaveEvent, DataEvent]);
-
-function parseJson(data: string) {
-	try {
-		return JSON.parse(data);
-	} catch (_error: unknown) {
-		return null;
-	}
-}
 
 function onMessage(ws: WebSocket, message: MessageEvent) {
 	const data = parseJson(message.data);
@@ -56,93 +22,37 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 
 		switch (event.type) {
 			case "join": {
-				wsToId.set(ws, event.id);
-				idToWs.set(event.id, ws);
+				// Ensure socket and user ID are registered
+				registerSocket(ws, event.id);
 
-				// Leave current room
-				const currentRoom = wsToRoom.get(ws);
+				// Leave current room if in one
+				const currentRoom = getRoomByUserId(event.id);
 				if (currentRoom) {
-					const room = rooms.get(currentRoom);
-					if (room) {
-						rooms.set(
-							currentRoom,
-							room.filter((w) => w !== ws)
-						);
-					}
+					currentRoom.removeMember(event.id);
 				}
 
 				// Join new room
-				wsToRoom.set(ws, event.room);
-				const room = rooms.get(event.room);
-				if (room) {
-					rooms.set(event.room, [...room, ws]);
-				} else {
-					rooms.set(event.room, [ws]);
-				}
+				const newRoom = getRoomByRoomId(event.room);
+				newRoom.addMember({ ...event });
 
-				// Create broadcast channel
-				if (!channels.has(event.room)) {
-					const channel = new BroadcastChannel(event.room);
-
-					channel.onmessage = (
-						message: MessageEvent<Output<typeof DataEvent>>
-					) => {
-						const dataEvent = message.data;
-						for (const w of rooms.get(event.room) ?? []) {
-							const wId = wsToId.get(w);
-							if (wId && w !== ws) {
-								if (
-									dataEvent.to === "all" ||
-									dataEvent.to.includes(wId)
-								) {
-									w.send(dataEvent.data);
-								}
-							}
-						}
-					};
-
-					channels.set(event.room, channel);
-				}
 				break;
 			}
 
 			case "leave": {
-				// Leave current room
-				const currentRoom = wsToRoom.get(ws);
-				if (currentRoom) {
-					const room = rooms.get(currentRoom);
-					if (room) {
-						rooms.set(
-							currentRoom,
-							room.filter((w) => w !== ws)
-						);
-					}
+				const currentRoom = getRoomByWebSocket(ws);
+				const userId = getUserIdByWebSocket(ws);
+
+				if (currentRoom && userId) {
+					currentRoom.removeMember(userId);
 				}
-				wsToRoom.delete(ws);
 				break;
 			}
 
 			case "data": {
-				const currentRoom = wsToRoom.get(ws);
+				const currentRoom = getRoomByWebSocket(ws);
+
 				if (currentRoom) {
-					const channel = channels.get(currentRoom);
-					const room = rooms.get(currentRoom);
-					if (room) {
-						for (const w of room) {
-							const wId = wsToId.get(w);
-							if (wId && w !== ws) {
-								if (
-									event.to === "all" ||
-									event.to.includes(wId)
-								) {
-									w.send(event.data);
-								}
-							}
-						}
-					}
-					if (channel) {
-						channel.postMessage(event);
-					}
+					currentRoom.sendMessage(event);
 				}
 				break;
 			}
@@ -150,7 +60,9 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	} else {
 		console.log(message.data);
 		if (ws.readyState < 2) {
-			ws.send(JSON.stringify({ type: "sys", message: "Invalid event" }));
+			ws.send(
+				JSON.stringify({ type: "error", message: "Invalid event" })
+			);
 		}
 	}
 }
@@ -163,29 +75,13 @@ function onOpen(ws: WebSocket) {
 function onClose(ws: WebSocket) {
 	sockets.delete(ws);
 
-	const currentRoom = wsToRoom.get(ws);
-	if (currentRoom) {
-		// Leave current room
-		const room = rooms.get(currentRoom);
-		if (room) {
-			const newRoom = room.filter((w) => w !== ws);
-			if (newRoom.length === 0) {
-				// Delete it if it's empty
-				rooms.delete(currentRoom);
-				// And close the broadcast channel
-				channels.get(currentRoom)?.close();
-				channels.delete(currentRoom);
-			} else {
-				rooms.set(currentRoom, newRoom);
-			}
-		}
+	const currentRoom = getRoomByWebSocket(ws);
+	const userId = getUserIdByWebSocket(ws);
+	if (currentRoom && userId) {
+		currentRoom.removeMember(userId);
 	}
 
-	const id = wsToId.get(ws);
-	wsToId.delete(ws);
-	if (id) {
-		idToWs.delete(id);
-	}
+	clearSocket(ws);
 
 	console.log(`Client disconnected (${sockets.size} connected to instance)`);
 }
