@@ -29,7 +29,9 @@ function onMessage(ws: WebSocket | null, room: string, message: MessageEvent) {
 				peer.send(message.data);
 			}
 		}
-		channel?.postMessage(message.data);
+		if (ws !== null) {
+			channel?.postMessage(message.data);
+		}
 	} else {
 		console.warn("Invalid message: ", message.data);
 		if (ws && ws.readyState < 2) {
