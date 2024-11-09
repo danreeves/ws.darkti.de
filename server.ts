@@ -1,65 +1,38 @@
-import { safeParse } from "https://deno.land/x/valibot@v0.24.1/mod.ts";
-import {
-	clearSocket,
-	getRoomByRoomId,
-	getRoomByUserId,
-	getRoomByWebSocket,
-	getUserIdByWebSocket,
-	registerSocket,
-} from "./room.ts";
-import { Event } from "./lib/types.ts";
-import { parseJson } from "./lib/parseJson.ts";
-
 const sockets = new Set<WebSocket>();
+const rooms = new Map<string, Set<WebSocket>>();
+const channels = new Map<string, BroadcastChannel>();
 
-function onMessage(ws: WebSocket, message: MessageEvent) {
-	const data = parseJson(message.data);
-	const result = safeParse(Event, data);
-	if (result.success) {
-		const event = result.output;
+function onOpen(ws: WebSocket, room: string) {
+	sockets.add(ws);
+	if (!rooms.has(room)) {
+		rooms.set(room, new Set([ws]));
+	} else {
+		rooms.get(room)?.add(ws);
+	}
+	if (!channels.has(room)) {
+		const channel = new BroadcastChannel(room)
+		channel.onmessage = (event: MessageEvent) => {
+			onMessage(null, room, event)
+		}
+		channels.set(room, channel);
+	}
+	console.log(`Client connected (${sockets.size} connected to instance)`);
+}
 
-		console.log(event);
-
-		switch (event.type) {
-			case "join": {
-				// Ensure socket and user ID are registered
-				registerSocket(ws, event.id);
-
-				// Leave current room if in one
-				const currentRoom = getRoomByUserId(event.id);
-				if (currentRoom) {
-					currentRoom.removeMember(event.id);
-				}
-
-				// Join new room
-				const newRoom = getRoomByRoomId(event.room);
-				newRoom.addMember({ id: event.id, mods: event.mods });
-
-				break;
-			}
-
-			case "leave": {
-				const currentRoom = getRoomByWebSocket(ws);
-				const userId = getUserIdByWebSocket(ws);
-
-				if (currentRoom && userId) {
-					currentRoom.removeMember(userId);
-				}
-				break;
-			}
-
-			case "data": {
-				const currentRoom = getRoomByWebSocket(ws);
-
-				if (currentRoom) {
-					currentRoom.sendMessage(event);
-				}
-				break;
+function onMessage(ws: WebSocket | null, room: string, message: MessageEvent) {
+	if (typeof message.data === "string") {
+		console.log(room, message.data);
+		const peers = rooms.get(room);
+		const channel = channels.get(room);
+		for (const peer of peers || []) {
+			if (peer !== ws && peer.readyState < 2) {
+				peer.send(message.data);
 			}
 		}
+		channel?.postMessage(message.data);
 	} else {
 		console.warn("Invalid message: ", message.data);
-		if (ws.readyState < 2) {
+		if (ws && ws.readyState < 2) {
 			ws.send(
 				JSON.stringify({ type: "error", message: "Invalid event" })
 			);
@@ -67,26 +40,13 @@ function onMessage(ws: WebSocket, message: MessageEvent) {
 	}
 }
 
-function onOpen(ws: WebSocket) {
-	sockets.add(ws);
-	console.log(`Client connected (${sockets.size} connected to instance)`);
-}
-
-function onClose(ws: WebSocket) {
+function onClose(ws: WebSocket, room: string) {
 	sockets.delete(ws);
-
-	const currentRoom = getRoomByWebSocket(ws);
-	const userId = getUserIdByWebSocket(ws);
-	if (currentRoom && userId) {
-		currentRoom.removeMember(userId);
-	}
-
-	clearSocket(ws);
-
+	rooms.get(room)?.delete(ws);
 	console.log(`Client disconnected (${sockets.size} connected to instance)`);
 }
 
-function onError(socket: WebSocket, error: Event) {
+function onError(socket: WebSocket, error: Event) { 
 	if (error instanceof ErrorEvent) {
 		console.error(error.message);
 	}
@@ -99,12 +59,22 @@ Deno.serve({
 		// If the request is a websocket upgrade,
 		// we need to use the Deno.upgradeWebSocket helper
 		if (request.headers.get("upgrade") === "websocket") {
+			const url = new URL(request.url)
+			const room = url.pathname.replace(/^\/+|\/+$/g, '')
+
+			if (!room) {
+				// If the request is a normal HTTP request,
+				// we serve the client HTML file.
+				const file = await Deno.open("./index.html", { read: true });
+				return new Response(file.readable);
+			}
+			
 			const { socket, response } = Deno.upgradeWebSocket(request);
 
-			socket.onopen = () => onOpen(socket);
-			socket.onmessage = (message) => onMessage(socket, message);
-			socket.onclose = () => onClose(socket);
-			socket.onerror = (error) => onError(socket, error);
+			socket.onopen = () => onOpen(socket, room);
+			socket.onmessage = (message) => onMessage(socket, room, message);
+			socket.onclose = () => onClose(socket, room);
+			socket.onerror = (error) => onError(socket,  error);
 
 			return response;
 		} else {
